@@ -5,6 +5,7 @@ import Link from 'next/link';
 import AdminLayout from '@/components/AdminLayout';
 import { useData } from '@/lib/data-context';
 import { Vote, VoteRecord } from '@/lib/types';
+import { generateVoteReportPDF } from '@/lib/pdf-generator';
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -16,6 +17,19 @@ export default function VotesPage() {
   const [selectedVoter, setSelectedVoter] = useState<VoteRecord | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
+
+  const handleDownloadPDF = async (vote: Vote) => {
+    setDownloadingPdf(vote.id);
+    try {
+      const records = getVoteRecords(vote.id);
+      await generateVoteReportPDF({ vote, records });
+    } catch (error) {
+      console.error('Erreur lors de la generation du PDF:', error);
+    } finally {
+      setDownloadingPdf(null);
+    }
+  };
 
   const getVoteStatus = (vote: Vote) => {
     const now = new Date();
@@ -263,6 +277,20 @@ export default function VotesPage() {
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-1">
                             <button
+                              onClick={() => handleDownloadPDF(vote)}
+                              disabled={downloadingPdf === vote.id}
+                              className={`p-2.5 rounded-xl transition-all ${downloadingPdf === vote.id ? 'bg-gold-500 text-white' : 'hover:bg-gold-100 text-slate-600 hover:text-gold-700 border-2 border-transparent hover:border-gold-200'}`}
+                              title="Telecharger le rapport PDF"
+                            >
+                              {downloadingPdf === vote.id ? (
+                                <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin block"></span>
+                              ) : (
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                              )}
+                            </button>
+                            <button
                               onClick={() => copyVoteLink(vote.id)}
                               className={`p-2.5 rounded-xl transition-all ${copiedId === vote.id ? 'bg-green-500 text-white' : 'hover:bg-slate-100 text-slate-600 border-2 border-transparent hover:border-slate-200'}`}
                               title={copiedId === vote.id ? 'Copie!' : 'Copier le lien'}
@@ -321,14 +349,31 @@ export default function VotesPage() {
                     <p className="text-sm text-slate-300">{selectedVoteRecords.length} votant{selectedVoteRecords.length !== 1 ? 's' : ''}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => { setSelectedVote(null); setSelectedVoter(null); }}
-                  className="p-2 rounded-xl hover:bg-white/10 transition-colors"
-                >
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleDownloadPDF(selectedVote)}
+                    disabled={downloadingPdf === selectedVote.id}
+                    className="flex items-center gap-2 px-4 py-2 bg-gold-500 hover:bg-gold-400 text-navy-900 rounded-xl font-medium transition-all disabled:opacity-50"
+                    title="Telecharger le rapport PDF"
+                  >
+                    {downloadingPdf === selectedVote.id ? (
+                      <span className="w-4 h-4 border-2 border-navy-900 border-t-transparent rounded-full animate-spin"></span>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    )}
+                    <span className="hidden sm:inline">Rapport PDF</span>
+                  </button>
+                  <button
+                    onClick={() => { setSelectedVote(null); setSelectedVoter(null); }}
+                    className="p-2 rounded-xl hover:bg-white/10 transition-colors"
+                  >
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               {/* Modal content */}
