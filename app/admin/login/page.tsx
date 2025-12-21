@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { useData } from '@/lib/data-context';
+
+/* eslint-disable @next/next/no-img-element */
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -50,11 +51,9 @@ export default function AdminLoginPage() {
         <div className="relative z-10">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-2xl ring-2 ring-gold-400/30">
-              <Image
+              <img
                 src="/logo.jpeg"
                 alt="RAMPI"
-                width={56}
-                height={56}
                 className="w-full h-full object-cover"
               />
             </div>
@@ -97,7 +96,7 @@ export default function AdminLoginPage() {
         </div>
 
         <div className="relative z-10 text-slate-400 text-sm">
-          &copy; 2024 RAMPI Vote. Tous droits reserves.
+          &copy; 2025 RAMPI Vote. Tous droits reserves.
         </div>
       </div>
 
@@ -107,11 +106,9 @@ export default function AdminLoginPage() {
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg">
-              <Image
+              <img
                 src="/logo.jpeg"
                 alt="RAMPI"
-                width={48}
-                height={48}
                 className="w-full h-full object-cover"
               />
             </div>

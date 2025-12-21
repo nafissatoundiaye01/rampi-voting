@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import Image from 'next/image';
 import { useData, getVisitorId } from '@/lib/data-context';
 import { VoterInfo } from '@/lib/types';
 import ResultsChart from '@/components/ResultsChart';
+
+/* eslint-disable @next/next/no-img-element */
 
 const COUNTRIES = [
   'Sénégal', 'France', 'Belgique', 'Suisse', 'Canada', 'Côte d\'Ivoire',
@@ -49,22 +50,18 @@ export default function VotePage() {
       <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-navy-50 via-white to-gold-50">
         {/* Logo Watermark */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden opacity-[0.03]">
-          <Image
+          <img
             src="/logo.jpeg"
             alt=""
-            width={800}
-            height={800}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px]"
           />
         </div>
 
         <div className="card-elevated rounded-2xl p-12 max-w-md w-full text-center relative z-10">
           <div className="w-16 h-16 mx-auto mb-4 rounded-2xl overflow-hidden shadow-lg">
-            <Image
+            <img
               src="/logo.jpeg"
               alt="RAMPI"
-              width={64}
-              height={64}
               className="w-full h-full object-cover"
             />
           </div>
@@ -160,12 +157,10 @@ export default function VotePage() {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-navy-50 via-white to-gold-50">
       {/* Logo Watermark */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden opacity-[0.02]">
-        <Image
+        <img
           src="/logo.jpeg"
           alt=""
-          width={800}
-          height={800}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px]"
         />
       </div>
 
@@ -174,11 +169,9 @@ export default function VotePage() {
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center justify-center gap-3">
             <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md border-2 border-gold-200">
-              <Image
+              <img
                 src="/logo.jpeg"
                 alt="RAMPI"
-                width={48}
-                height={48}
                 className="w-full h-full object-cover"
               />
             </div>
@@ -215,11 +208,9 @@ export default function VotePage() {
 
               {/* Logo decoratif en haut a droite */}
               <div className="absolute top-4 right-4 w-16 h-16 rounded-xl overflow-hidden opacity-20">
-                <Image
+                <img
                   src="/logo.jpeg"
                   alt=""
-                  width={64}
-                  height={64}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -453,11 +444,9 @@ export default function VotePage() {
                       </div>
                     </div>
                     <div className="w-10 h-10 rounded-lg overflow-hidden opacity-30">
-                      <Image
+                      <img
                         src="/logo.jpeg"
                         alt=""
-                        width={40}
-                        height={40}
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -542,11 +531,9 @@ export default function VotePage() {
                   <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5 mb-8">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg border-2 border-green-300">
-                        <Image
+                        <img
                           src="/logo.jpeg"
                           alt="RAMPI"
-                          width={48}
-                          height={48}
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -622,11 +609,9 @@ export default function VotePage() {
           <div className="flex flex-col items-center gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg overflow-hidden shadow-sm border border-gold-200">
-                <Image
+                <img
                   src="/logo.jpeg"
                   alt="RAMPI"
-                  width={40}
-                  height={40}
                   className="w-full h-full object-cover"
                 />
               </div>

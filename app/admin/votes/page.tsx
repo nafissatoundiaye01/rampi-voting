@@ -2,10 +2,11 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import AdminLayout from '@/components/AdminLayout';
 import { useData } from '@/lib/data-context';
 import { Vote, VoteRecord } from '@/lib/types';
+
+/* eslint-disable @next/next/no-img-element */
 
 export default function VotesPage() {
   const { votes, deleteVote, getVoteRecords } = useData();
@@ -431,7 +432,7 @@ export default function VotesPage() {
               {/* Header */}
               <div className="px-6 py-5 bg-navy-900 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Image src="/logo.jpeg" alt="" width={36} height={36} className="rounded-xl border-2 border-gold-400/50" />
+                  <img src="/logo.jpeg" alt="" className="w-9 h-9 rounded-xl border-2 border-gold-400/50" />
                   <h3 className="font-bold text-white">Details du votant</h3>
                 </div>
                 <button

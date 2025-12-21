@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useData } from '@/lib/data-context';
+
+/* eslint-disable @next/next/no-img-element */
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -68,11 +69,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* Logo */}
         <div className={`p-5 flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
           <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0">
-            <Image
+            <img
               src="/logo.jpeg"
               alt="RAMPI"
-              width={40}
-              height={40}
               className="w-full h-full object-cover"
             />
           </div>

@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useData } from '@/lib/data-context';
+
+/* eslint-disable @next/next/no-img-element */
 
 export default function Header() {
   const { isAdminLoggedIn, logoutAdmin } = useData();
@@ -13,11 +14,9 @@ export default function Header() {
         <div className="flex items-center justify-between">
           <Link href="/admin" className="flex items-center gap-3 group">
             <div className="w-11 h-11 rounded-xl overflow-hidden shadow-md ring-2 ring-primary/10 group-hover:ring-accent/30 transition-all">
-              <Image
+              <img
                 src="/logo.jpeg"
                 alt="RAMPI Vote"
-                width={44}
-                height={44}
                 className="w-full h-full object-cover"
               />
             </div>
