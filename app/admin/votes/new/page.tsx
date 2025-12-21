@@ -1,7 +1,12 @@
 'use client';
 
+import AdminLayout from '@/components/AdminLayout';
 import VoteForm from '@/components/VoteForm';
 
 export default function NewVotePage() {
-  return <VoteForm mode="create" />;
+  return (
+    <AdminLayout>
+      <VoteForm mode="create" />
+    </AdminLayout>
+  );
 }

@@ -10,7 +10,9 @@ export interface Vote {
   description: string;
   options: VoteOption[];
   startDate: string;
+  startTime: string;
   endDate: string;
+  endTime: string;
   showResults: boolean;
   createdAt: string;
 }

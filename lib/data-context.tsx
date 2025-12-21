@@ -1,36 +1,32 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Vote, VoteRecord, Admin, VoterInfo } from './types';
+import { supabase, DbVote, DbVoteOption, DbVoteRecord } from './supabase';
+import { Vote, VoteOption, VoteRecord, VoterInfo } from './types';
 
 interface DataContextType {
   votes: Vote[];
   voteRecords: VoteRecord[];
   isAdminLoggedIn: boolean;
-  createVote: (vote: Omit<Vote, 'id' | 'createdAt'>) => Vote;
-  updateVote: (id: string, vote: Partial<Vote>) => void;
-  deleteVote: (id: string) => void;
-  castVote: (voteId: string, optionId: string, visitorId: string, voterInfo: VoterInfo) => boolean;
+  isLoading: boolean;
+  createVote: (vote: Omit<Vote, 'id' | 'createdAt'>) => Promise<Vote | null>;
+  updateVote: (id: string, vote: Partial<Vote>) => Promise<void>;
+  deleteVote: (id: string) => Promise<void>;
+  castVote: (voteId: string, optionId: string, visitorId: string, voterInfo: VoterInfo) => Promise<boolean>;
   hasVoted: (voteId: string, visitorId: string) => boolean;
   hasEmailVoted: (voteId: string, email: string) => boolean;
   getActiveVotes: () => Vote[];
   getVoteById: (id: string) => Vote | undefined;
   getVoteRecords: (voteId: string) => VoteRecord[];
-  loginAdmin: (email: string, password: string) => boolean;
+  loginAdmin: (email: string, password: string) => Promise<boolean>;
   logoutAdmin: () => void;
+  refreshVotes: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-const ADMIN_CREDENTIALS: Admin = {
-  email: 'admin@rampi.com',
-  password: 'admin123'
-};
-
 const STORAGE_KEYS = {
-  VOTES: 'rampi_votes',
-  RECORDS: 'rampi_records',
   ADMIN: 'rampi_admin',
   VISITOR: 'rampi_visitor'
 };
@@ -39,107 +35,216 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [votes, setVotes] = useState<Vote[]>([]);
   const [voteRecords, setVoteRecords] = useState<VoteRecord[]>([]);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load data from localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedVotes = localStorage.getItem(STORAGE_KEYS.VOTES);
-      const savedRecords = localStorage.getItem(STORAGE_KEYS.RECORDS);
-      const savedAdmin = localStorage.getItem(STORAGE_KEYS.ADMIN);
+  // Convertir les donnees Supabase en format local
+  const convertDbToVote = (dbVote: DbVote, options: DbVoteOption[]): Vote => ({
+    id: dbVote.id,
+    title: dbVote.title,
+    description: dbVote.description || '',
+    startDate: dbVote.start_date,
+    startTime: dbVote.start_time || '00:00',
+    endDate: dbVote.end_date,
+    endTime: dbVote.end_time || '23:59',
+    showResults: dbVote.show_results,
+    createdAt: dbVote.created_at,
+    options: options.map(opt => ({
+      id: opt.id,
+      label: opt.label,
+      votes: opt.votes_count
+    }))
+  });
 
-      if (savedVotes) {
-        setVotes(JSON.parse(savedVotes));
-      } else {
-        // Create demo votes
-        const demoVotes: Vote[] = [
-          {
-            id: uuidv4(),
-            title: 'Meilleur langage de programmation 2024',
-            description: 'Votez pour votre langage de programmation favori cette annee.',
-            options: [
-              { id: uuidv4(), label: 'JavaScript', votes: 15 },
-              { id: uuidv4(), label: 'Python', votes: 22 },
-              { id: uuidv4(), label: 'TypeScript', votes: 18 },
-              { id: uuidv4(), label: 'Rust', votes: 8 }
-            ],
-            startDate: new Date().toISOString().split('T')[0],
-            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            showResults: true,
-            createdAt: new Date().toISOString()
-          },
-          {
-            id: uuidv4(),
-            title: 'Choix du theme pour la prochaine conference',
-            description: 'Aidez-nous a choisir le theme de notre prochaine conference tech.',
-            options: [
-              { id: uuidv4(), label: 'Intelligence Artificielle', votes: 30 },
-              { id: uuidv4(), label: 'Developpement Web', votes: 20 },
-              { id: uuidv4(), label: 'Cybersecurite', votes: 25 },
-              { id: uuidv4(), label: 'Cloud Computing', votes: 12 }
-            ],
-            startDate: new Date().toISOString().split('T')[0],
-            endDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            showResults: true,
-            createdAt: new Date().toISOString()
-          }
-        ];
-        setVotes(demoVotes);
-        localStorage.setItem(STORAGE_KEYS.VOTES, JSON.stringify(demoVotes));
-      }
+  const convertDbToRecord = (dbRecord: DbVoteRecord): VoteRecord => ({
+    id: dbRecord.id,
+    voteId: dbRecord.vote_id,
+    optionId: dbRecord.option_id,
+    optionLabel: dbRecord.option_label,
+    visitorId: dbRecord.visitor_id,
+    voterInfo: {
+      nom: dbRecord.voter_nom,
+      prenom: dbRecord.voter_prenom,
+      email: dbRecord.voter_email,
+      telephone: dbRecord.voter_telephone,
+      pays: dbRecord.voter_pays
+    },
+    votedAt: dbRecord.voted_at
+  });
 
-      if (savedRecords) {
-        setVoteRecords(JSON.parse(savedRecords));
-      }
+  // Charger les votes depuis Supabase
+  const loadVotes = useCallback(async () => {
+    try {
+      // Charger tous les votes
+      const { data: votesData, error: votesError } = await supabase
+        .from('votes')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      if (savedAdmin === 'true') {
-        setIsAdminLoggedIn(true);
-      }
+      if (votesError) throw votesError;
 
-      setIsLoaded(true);
+      // Charger toutes les options
+      const { data: optionsData, error: optionsError } = await supabase
+        .from('vote_options')
+        .select('*');
+
+      if (optionsError) throw optionsError;
+
+      // Charger tous les enregistrements
+      const { data: recordsData, error: recordsError } = await supabase
+        .from('vote_records')
+        .select('*')
+        .order('voted_at', { ascending: false });
+
+      if (recordsError) throw recordsError;
+
+      // Convertir les donnees
+      const convertedVotes: Vote[] = (votesData || []).map((dbVote: DbVote) => {
+        const voteOptions = (optionsData || []).filter(
+          (opt: DbVoteOption) => opt.vote_id === dbVote.id
+        );
+        return convertDbToVote(dbVote, voteOptions);
+      });
+
+      const convertedRecords: VoteRecord[] = (recordsData || []).map(convertDbToRecord);
+
+      setVotes(convertedVotes);
+      setVoteRecords(convertedRecords);
+    } catch (error) {
+      console.error('Erreur lors du chargement des votes:', error);
     }
   }, []);
 
-  // Save to localStorage when data changes
+  // Charger les donnees au demarrage
   useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.VOTES, JSON.stringify(votes));
-    }
-  }, [votes, isLoaded]);
+    const init = async () => {
+      setIsLoading(true);
 
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(voteRecords));
-    }
-  }, [voteRecords, isLoaded]);
+      // Verifier l'etat de connexion admin
+      if (typeof window !== 'undefined') {
+        const savedAdmin = localStorage.getItem(STORAGE_KEYS.ADMIN);
+        if (savedAdmin === 'true') {
+          setIsAdminLoggedIn(true);
+        }
+      }
 
-  const createVote = (voteData: Omit<Vote, 'id' | 'createdAt'>): Vote => {
-    const newVote: Vote = {
-      ...voteData,
-      id: uuidv4(),
-      createdAt: new Date().toISOString(),
-      options: voteData.options.map(opt => ({
-        ...opt,
-        id: opt.id || uuidv4(),
-        votes: 0
-      }))
+      await loadVotes();
+      setIsLoading(false);
     };
-    setVotes(prev => [...prev, newVote]);
-    return newVote;
+
+    init();
+  }, [loadVotes]);
+
+  // Rafraichir les votes
+  const refreshVotes = async () => {
+    await loadVotes();
   };
 
-  const updateVote = (id: string, voteData: Partial<Vote>) => {
-    setVotes(prev => prev.map(vote =>
-      vote.id === id ? { ...vote, ...voteData } : vote
-    ));
+  // Creer un nouveau vote
+  const createVote = async (voteData: Omit<Vote, 'id' | 'createdAt'>): Promise<Vote | null> => {
+    try {
+      // Inserer le vote
+      const { data: newVote, error: voteError } = await supabase
+        .from('votes')
+        .insert({
+          title: voteData.title,
+          description: voteData.description,
+          start_date: voteData.startDate,
+          start_time: voteData.startTime || '00:00',
+          end_date: voteData.endDate,
+          end_time: voteData.endTime || '23:59',
+          show_results: voteData.showResults
+        })
+        .select()
+        .single();
+
+      if (voteError) throw voteError;
+
+      // Inserer les options
+      const optionsToInsert = voteData.options.map(opt => ({
+        vote_id: newVote.id,
+        label: opt.label,
+        votes_count: 0
+      }));
+
+      const { data: newOptions, error: optionsError } = await supabase
+        .from('vote_options')
+        .insert(optionsToInsert)
+        .select();
+
+      if (optionsError) throw optionsError;
+
+      const createdVote = convertDbToVote(newVote, newOptions || []);
+      setVotes(prev => [createdVote, ...prev]);
+
+      return createdVote;
+    } catch (error) {
+      console.error('Erreur lors de la creation du vote:', error);
+      return null;
+    }
   };
 
-  const deleteVote = (id: string) => {
-    setVotes(prev => prev.filter(vote => vote.id !== id));
-    setVoteRecords(prev => prev.filter(record => record.voteId !== id));
+  // Mettre a jour un vote
+  const updateVote = async (id: string, voteData: Partial<Vote>) => {
+    try {
+      // Mettre a jour le vote
+      const updateData: Record<string, unknown> = {};
+      if (voteData.title) updateData.title = voteData.title;
+      if (voteData.description !== undefined) updateData.description = voteData.description;
+      if (voteData.startDate) updateData.start_date = voteData.startDate;
+      if (voteData.startTime) updateData.start_time = voteData.startTime;
+      if (voteData.endDate) updateData.end_date = voteData.endDate;
+      if (voteData.endTime) updateData.end_time = voteData.endTime;
+      if (voteData.showResults !== undefined) updateData.show_results = voteData.showResults;
+
+      if (Object.keys(updateData).length > 0) {
+        const { error } = await supabase
+          .from('votes')
+          .update(updateData)
+          .eq('id', id);
+
+        if (error) throw error;
+      }
+
+      // Si les options sont mises a jour
+      if (voteData.options) {
+        // Supprimer les anciennes options
+        await supabase.from('vote_options').delete().eq('vote_id', id);
+
+        // Inserer les nouvelles options
+        const optionsToInsert = voteData.options.map(opt => ({
+          vote_id: id,
+          label: opt.label,
+          votes_count: opt.votes || 0
+        }));
+
+        await supabase.from('vote_options').insert(optionsToInsert);
+      }
+
+      await refreshVotes();
+    } catch (error) {
+      console.error('Erreur lors de la mise a jour du vote:', error);
+    }
   };
 
-  const castVote = (voteId: string, optionId: string, visitorId: string, voterInfo: VoterInfo): boolean => {
+  // Supprimer un vote
+  const deleteVote = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('votes')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setVotes(prev => prev.filter(vote => vote.id !== id));
+      setVoteRecords(prev => prev.filter(record => record.voteId !== id));
+    } catch (error) {
+      console.error('Erreur lors de la suppression du vote:', error);
+    }
+  };
+
+  // Voter
+  const castVote = async (voteId: string, optionId: string, visitorId: string, voterInfo: VoterInfo): Promise<boolean> => {
     if (hasVoted(voteId, visitorId) || hasEmailVoted(voteId, voterInfo.email)) {
       return false;
     }
@@ -151,75 +256,130 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    // Update vote count
-    setVotes(prev => prev.map(v => {
-      if (v.id === voteId) {
-        return {
-          ...v,
-          options: v.options.map(o =>
-            o.id === optionId ? { ...o, votes: o.votes + 1 } : o
-          )
-        };
-      }
-      return v;
-    }));
+    try {
+      // Incrementer le compteur de votes
+      const { error: updateError } = await supabase
+        .from('vote_options')
+        .update({ votes_count: option.votes + 1 })
+        .eq('id', optionId);
 
-    // Record the vote
-    const record: VoteRecord = {
-      id: uuidv4(),
-      voteId,
-      optionId,
-      optionLabel: option.label,
-      visitorId,
-      voterInfo,
-      votedAt: new Date().toISOString()
-    };
-    setVoteRecords(prev => [...prev, record]);
+      if (updateError) throw updateError;
 
-    return true;
+      // Enregistrer le vote
+      const { data: newRecord, error: recordError } = await supabase
+        .from('vote_records')
+        .insert({
+          vote_id: voteId,
+          option_id: optionId,
+          option_label: option.label,
+          visitor_id: visitorId,
+          voter_nom: voterInfo.nom,
+          voter_prenom: voterInfo.prenom,
+          voter_email: voterInfo.email,
+          voter_telephone: voterInfo.telephone,
+          voter_pays: voterInfo.pays
+        })
+        .select()
+        .single();
+
+      if (recordError) throw recordError;
+
+      // Mettre a jour l'etat local
+      setVotes(prev => prev.map(v => {
+        if (v.id === voteId) {
+          return {
+            ...v,
+            options: v.options.map(o =>
+              o.id === optionId ? { ...o, votes: o.votes + 1 } : o
+            )
+          };
+        }
+        return v;
+      }));
+
+      setVoteRecords(prev => [convertDbToRecord(newRecord), ...prev]);
+
+      return true;
+    } catch (error) {
+      console.error('Erreur lors du vote:', error);
+      return false;
+    }
   };
 
+  // Verifier si un visiteur a deja vote
   const hasVoted = (voteId: string, visitorId: string): boolean => {
     return voteRecords.some(record =>
       record.voteId === voteId && record.visitorId === visitorId
     );
   };
 
+  // Verifier si un email a deja vote
   const hasEmailVoted = (voteId: string, email: string): boolean => {
     return voteRecords.some(record =>
       record.voteId === voteId && record.voterInfo?.email?.toLowerCase() === email.toLowerCase()
     );
   };
 
+  // Obtenir les votes actifs
   const getActiveVotes = (): Vote[] => {
     const now = new Date();
     return votes.filter(vote => {
       const start = new Date(vote.startDate);
+      if (vote.startTime) {
+        const [startHours, startMinutes] = vote.startTime.split(':').map(Number);
+        start.setHours(startHours, startMinutes, 0, 0);
+      } else {
+        start.setHours(0, 0, 0, 0);
+      }
+
       const end = new Date(vote.endDate);
-      end.setHours(23, 59, 59, 999);
+      if (vote.endTime) {
+        const [endHours, endMinutes] = vote.endTime.split(':').map(Number);
+        end.setHours(endHours, endMinutes, 59, 999);
+      } else {
+        end.setHours(23, 59, 59, 999);
+      }
+
       return now >= start && now <= end;
     });
   };
 
+  // Obtenir un vote par ID
   const getVoteById = (id: string): Vote | undefined => {
     return votes.find(vote => vote.id === id);
   };
 
+  // Obtenir les enregistrements d'un vote
   const getVoteRecords = (voteId: string): VoteRecord[] => {
     return voteRecords.filter(record => record.voteId === voteId);
   };
 
-  const loginAdmin = (email: string, password: string): boolean => {
-    if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
+  // Connexion admin
+  const loginAdmin = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('admins')
+        .select('*')
+        .eq('email', email)
+        .eq('password_hash', password)
+        .single();
+
+      if (error || !data) {
+        return false;
+      }
+
       setIsAdminLoggedIn(true);
       if (typeof window !== 'undefined') {
         localStorage.setItem(STORAGE_KEYS.ADMIN, 'true');
       }
       return true;
+    } catch (error) {
+      console.error('Erreur de connexion:', error);
+      return false;
     }
-    return false;
   };
 
+  // Deconnexion admin
   const logoutAdmin = () => {
     setIsAdminLoggedIn(false);
     if (typeof window !== 'undefined') {
@@ -227,8 +387,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  if (!isLoaded) {
-    return null;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-primary font-medium">Chargement...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -236,6 +403,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       votes,
       voteRecords,
       isAdminLoggedIn,
+      isLoading,
       createVote,
       updateVote,
       deleteVote,
@@ -246,7 +414,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       getVoteById,
       getVoteRecords,
       loginAdmin,
-      logoutAdmin
+      logoutAdmin,
+      refreshVotes
     }}>
       {children}
     </DataContext.Provider>
@@ -261,7 +430,7 @@ export function useData() {
   return context;
 }
 
-// Get or create visitor ID
+// Obtenir ou creer l'ID visiteur
 export function getVisitorId(): string {
   if (typeof window === 'undefined') return '';
 
