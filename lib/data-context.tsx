@@ -131,6 +131,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Charger les admins
+  const loadAdmins = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('admins')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const convertedAdmins = (data || []).map(convertDbToAdmin);
+      setAdmins(convertedAdmins);
+    } catch (error) {
+      console.error('Erreur lors du chargement des admins:', error);
+    }
+  }, []);
+
   // Charger les donnees au demarrage
   useEffect(() => {
     const init = async () => {
@@ -393,23 +410,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const getVoteRecords = (voteId: string): VoteRecord[] => {
     return voteRecords.filter(record => record.voteId === voteId);
   };
-
-  // Charger les admins
-  const loadAdmins = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('admins')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      const convertedAdmins = (data || []).map(convertDbToAdmin);
-      setAdmins(convertedAdmins);
-    } catch (error) {
-      console.error('Erreur lors du chargement des admins:', error);
-    }
-  }, []);
 
   // Rafraichir les admins
   const refreshAdmins = async () => {
