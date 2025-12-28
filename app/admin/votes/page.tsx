@@ -385,7 +385,7 @@ export default function VotesPage() {
                   )}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="bg-navy-900 rounded-xl p-4 text-center">
-                      <p className="text-3xl font-bold text-gold-400">{selectedVote.options.reduce((sum, opt) => sum + opt.votes, 0)}</p>
+                      <p className="text-3xl font-bold text-gold-400">{selectedVoteRecords.length}</p>
                       <p className="text-xs text-slate-300 mt-1">Total votes</p>
                     </div>
                     <div className="bg-green-500 rounded-xl p-4 text-center">
@@ -398,7 +398,14 @@ export default function VotesPage() {
                     </div>
                     <div className="bg-purple-500 rounded-xl p-4 text-center">
                       <p className="text-lg font-bold text-white truncate">
-                        {selectedVote.options.reduce((max, opt) => opt.votes > max.votes ? opt : max, selectedVote.options[0])?.label || '-'}
+                        {(() => {
+                          const votesParOption = selectedVote.options.map(opt => ({
+                            label: opt.label,
+                            count: selectedVoteRecords.filter(r => r.optionId === opt.id).length
+                          }));
+                          const max = votesParOption.reduce((m, o) => o.count > m.count ? o : m, votesParOption[0]);
+                          return max?.label || '-';
+                        })()}
                       </p>
                       <p className="text-xs text-purple-100 mt-1">En tete</p>
                     </div>
@@ -435,8 +442,9 @@ export default function VotesPage() {
                   </h4>
                   <div className="space-y-4">
                     {selectedVote.options.map((option, index) => {
-                      const total = selectedVote.options.reduce((sum, opt) => sum + opt.votes, 0);
-                      const percentage = total > 0 ? (option.votes / total) * 100 : 0;
+                      const totalVotes = selectedVoteRecords.length;
+                      const optionVotes = selectedVoteRecords.filter(r => r.optionId === option.id).length;
+                      const percentage = totalVotes > 0 ? (optionVotes / totalVotes) * 100 : 0;
                       const colors = ['bg-navy-600', 'bg-gold-500', 'bg-purple-500', 'bg-blue-500', 'bg-green-500'];
 
                       return (
@@ -444,7 +452,7 @@ export default function VotesPage() {
                           <div className="flex items-center justify-between mb-2">
                             <span className="font-semibold text-slate-800">{option.label}</span>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-slate-800">{option.votes}</span>
+                              <span className="text-sm font-bold text-slate-800">{optionVotes} vote{optionVotes !== 1 ? 's' : ''}</span>
                               <span className="text-sm text-slate-500">({percentage.toFixed(1)}%)</span>
                             </div>
                           </div>
