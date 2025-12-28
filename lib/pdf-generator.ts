@@ -146,25 +146,15 @@ export async function generateVoteReportPDF({ vote, records }: GeneratePDFOption
     doc.text('Aucun vote enregistre pour le moment.', 15, yPos);
   } else {
     // Voters table
-    const votersData = records.map((record, index) => {
-      const voterInfo = record.voterInfo || {};
-      const prenom = voterInfo.prenom || '';
-      const nom = voterInfo.nom || '';
-      const email = voterInfo.email || '-';
-      const telephone = voterInfo.telephone || '-';
-      const pays = voterInfo.pays || '-';
-      const nomComplet = [prenom, nom].filter(Boolean).join(' ') || 'Anonyme';
-
-      return [
-        (index + 1).toString(),
-        nomComplet,
-        email,
-        telephone,
-        pays,
-        record.optionLabel || '-',
-        record.votedAt ? new Date(record.votedAt).toLocaleDateString('fr-FR') : '-'
-      ];
-    });
+    const votersData = records.map((record, index) => [
+      (index + 1).toString(),
+      `${record.voterInfo.prenom} ${record.voterInfo.nom}`,
+      record.voterInfo.email,
+      record.voterInfo.telephone,
+      record.voterInfo.pays,
+      record.optionLabel,
+      new Date(record.votedAt).toLocaleDateString('fr-FR')
+    ]);
 
     autoTable(doc, {
       startY: yPos,

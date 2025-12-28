@@ -23,8 +23,6 @@ export default function VotesPage() {
     setDownloadingPdf(vote.id);
     try {
       const records = getVoteRecords(vote.id);
-      console.log('PDF - Vote ID:', vote.id);
-      console.log('PDF - Records trouves:', records.length, records);
       await generateVoteReportPDF({ vote, records });
     } catch (error) {
       console.error('Erreur lors de la generation du PDF:', error);

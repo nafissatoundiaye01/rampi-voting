@@ -95,11 +95,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .select('*')
         .order('voted_at', { ascending: false });
 
-      if (recordsError) {
-        console.error('Erreur lors du chargement des vote_records:', recordsError);
-      }
-
-      console.log('Vote records charges:', recordsData?.length || 0, 'enregistrements');
+      if (recordsError) throw recordsError;
 
       // Convertir les donnees
       const convertedVotes: Vote[] = (votesData || []).map((dbVote: DbVote) => {
