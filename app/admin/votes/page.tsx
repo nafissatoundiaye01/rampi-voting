@@ -378,58 +378,6 @@ export default function VotesPage() {
 
               {/* Modal content */}
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)]">
-                {/* Vote Info Summary */}
-                <div className="mb-6">
-                  {selectedVote.description && (
-                    <p className="text-slate-600 mb-4">{selectedVote.description}</p>
-                  )}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="bg-navy-900 rounded-xl p-4 text-center">
-                      <p className="text-3xl font-bold text-gold-400">{selectedVoteRecords.length}</p>
-                      <p className="text-xs text-slate-300 mt-1">Total votes</p>
-                    </div>
-                    <div className="bg-green-500 rounded-xl p-4 text-center">
-                      <p className="text-3xl font-bold text-white">{selectedVoteRecords.length}</p>
-                      <p className="text-xs text-green-100 mt-1">Votants</p>
-                    </div>
-                    <div className="bg-blue-500 rounded-xl p-4 text-center">
-                      <p className="text-3xl font-bold text-white">{selectedVote.options.length}</p>
-                      <p className="text-xs text-blue-100 mt-1">Options</p>
-                    </div>
-                    <div className="bg-purple-500 rounded-xl p-4 text-center">
-                      <p className="text-lg font-bold text-white truncate">
-                        {(() => {
-                          const votesParOption = selectedVote.options.map(opt => ({
-                            label: opt.label,
-                            count: selectedVoteRecords.filter(r => r.optionId === opt.id).length
-                          }));
-                          const max = votesParOption.reduce((m, o) => o.count > m.count ? o : m, votesParOption[0]);
-                          return max?.label || '-';
-                        })()}
-                      </p>
-                      <p className="text-xs text-purple-100 mt-1">En tete</p>
-                    </div>
-                  </div>
-                  <div className="mt-4 p-4 bg-slate-100 rounded-xl border-2 border-slate-200">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span className="text-slate-600">Debut:</span>
-                        <span className="font-semibold text-slate-800">{new Date(selectedVote.startDate).toLocaleDateString('fr-FR')} a {selectedVote.startTime || '00:00'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span className="text-slate-600">Fin:</span>
-                        <span className="font-semibold text-slate-800">{new Date(selectedVote.endDate).toLocaleDateString('fr-FR')} a {selectedVote.endTime || '23:59'}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Results */}
                 <div className="mb-8">
                   <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -438,7 +386,7 @@ export default function VotesPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                       </svg>
                     </span>
-                    Resultats par option
+                    Resultats
                   </h4>
                   <div className="space-y-4">
                     {selectedVote.options.map((option, index) => {
@@ -452,7 +400,7 @@ export default function VotesPage() {
                           <div className="flex items-center justify-between mb-2">
                             <span className="font-semibold text-slate-800">{option.label}</span>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-slate-800">{optionVotes} vote{optionVotes !== 1 ? 's' : ''}</span>
+                              <span className="text-sm font-bold text-slate-800">{optionVotes}</span>
                               <span className="text-sm text-slate-500">({percentage.toFixed(1)}%)</span>
                             </div>
                           </div>
@@ -489,55 +437,31 @@ export default function VotesPage() {
                       <p className="text-sm text-slate-500 mt-1">Les votants apparaitront ici</p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {selectedVoteRecords.map((record, index) => (
-                        <div
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {selectedVoteRecords.map((record) => (
+                        <button
                           key={record.id}
-                          className="p-4 rounded-xl bg-slate-50 border-2 border-slate-200 hover:border-slate-300 transition-all"
+                          onClick={() => setSelectedVoter(record)}
+                          className="flex items-center gap-4 p-4 rounded-xl bg-slate-100 hover:bg-slate-200 transition-all text-left border-2 border-slate-200 hover:border-slate-300"
                         >
-                          <div className="flex items-start gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-navy-900 flex items-center justify-center text-gold-400 font-bold shadow-lg flex-shrink-0">
-                              {index + 1}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="font-bold text-slate-800">
-                                  {record.voterInfo?.prenom} {record.voterInfo?.nom}
-                                </p>
-                                <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-lg">
-                                  {record.optionLabel}
-                                </span>
-                              </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                                <div className="flex items-center gap-2 text-slate-600">
-                                  <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                  </svg>
-                                  <span className="truncate">{record.voterInfo?.email}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-slate-600">
-                                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                  </svg>
-                                  <span>{record.voterInfo?.telephone}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-slate-600">
-                                  <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  </svg>
-                                  <span>{record.voterInfo?.pays}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-slate-600">
-                                  <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  <span>{new Date(record.votedAt).toLocaleDateString('fr-FR')} {new Date(record.votedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
-                                </div>
-                              </div>
-                            </div>
+                          <div className="w-12 h-12 rounded-xl bg-navy-900 flex items-center justify-center text-gold-400 font-bold shadow-lg">
+                            {record.voterInfo?.prenom?.[0]}{record.voterInfo?.nom?.[0]}
                           </div>
-                        </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-slate-800 truncate">
+                              {record.voterInfo?.prenom} {record.voterInfo?.nom}
+                            </p>
+                            <p className="text-sm text-slate-600 truncate flex items-center gap-1">
+                              <svg className="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              {record.optionLabel}
+                            </p>
+                          </div>
+                          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
                       ))}
                     </div>
                   )}
