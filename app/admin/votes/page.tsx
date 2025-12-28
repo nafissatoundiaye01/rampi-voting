@@ -222,7 +222,7 @@ export default function VotesPage() {
                 ) : (
                   filteredVotes.map((vote) => {
                     const status = getVoteStatus(vote);
-                    const totalVotes = vote.options.reduce((sum, opt) => sum + opt.votes, 0);
+                    const totalVotes = getVoteRecords(vote.id).length;
 
                     return (
                       <tr key={vote.id} className="hover:bg-slate-50 transition-colors">
