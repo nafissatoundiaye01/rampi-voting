@@ -146,19 +146,25 @@ export async function generateVoteReportPDF({ vote, records }: GeneratePDFOption
     doc.text('Aucun vote enregistre pour le moment.', 15, yPos);
   } else {
     // Voters table
-    const votersData = records.map((record, index) => [
-      (index + 1).toString(),
-      `${record.voterInfo.prenom} ${record.voterInfo.nom}`,
-      record.voterInfo.email,
-      record.voterInfo.telephone,
-      record.voterInfo.pays,
-      record.optionLabel,
-      new Date(record.votedAt).toLocaleDateString('fr-FR')
-    ]);
+    const votersData = records.map((record, index) => {
+      const votedDate = new Date(record.votedAt);
+      const dateStr = votedDate.toLocaleDateString('fr-FR');
+      const timeStr = votedDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+      return [
+        (index + 1).toString(),
+        `${record.voterInfo.prenom} ${record.voterInfo.nom}`,
+        record.voterInfo.email,
+        record.voterInfo.telephone,
+        record.voterInfo.pays,
+        record.optionLabel,
+        `${dateStr} ${timeStr}`
+      ];
+    });
 
     autoTable(doc, {
       startY: yPos,
-      head: [['#', 'Nom complet', 'Email', 'Telephone', 'Pays', 'Vote', 'Date']],
+      head: [['#', 'Nom complet', 'Email', 'Telephone', 'Pays', 'Vote', 'Date et Heure']],
       body: votersData,
       theme: 'striped',
       headStyles: {
@@ -178,11 +184,11 @@ export async function generateVoteReportPDF({ vote, records }: GeneratePDFOption
       columnStyles: {
         0: { cellWidth: 10, halign: 'center' },
         1: { cellWidth: 30 },
-        2: { cellWidth: 40 },
+        2: { cellWidth: 38 },
         3: { cellWidth: 25 },
         4: { cellWidth: 20 },
-        5: { cellWidth: 30 },
-        6: { cellWidth: 20, halign: 'center' }
+        5: { cellWidth: 28 },
+        6: { cellWidth: 28, halign: 'center' }
       }
     });
   }
