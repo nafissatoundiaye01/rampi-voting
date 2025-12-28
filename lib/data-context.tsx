@@ -27,6 +27,7 @@ interface DataContextType {
   refreshVotes: () => Promise<void>;
   addAdmin: (email: string, password: string) => Promise<boolean>;
   deleteAdmin: (id: string) => Promise<boolean>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
   refreshAdmins: () => Promise<void>;
 }
 
@@ -519,6 +520,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Changer son mot de passe
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
+    if (!currentAdmin) {
+      console.error('Aucun admin connecte');
+      return false;
+    }
+
+    try {
+      // Verifier le mot de passe actuel
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('admins')
+        .select('*')
+        .eq('id', currentAdmin.id)
+        .eq('password_hash', currentPassword)
+        .single();
+
+      if (verifyError || !verifyData) {
+        console.error('Mot de passe actuel incorrect');
+        return false;
+      }
+
+      // Mettre a jour le mot de passe
+      const { error: updateError } = await supabase
+        .from('admins')
+        .update({ password_hash: newPassword })
+        .eq('id', currentAdmin.id);
+
+      if (updateError) throw updateError;
+
+      return true;
+    } catch (error) {
+      console.error('Erreur lors du changement de mot de passe:', error);
+      return false;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -555,6 +592,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       refreshVotes,
       addAdmin,
       deleteAdmin,
+      changePassword,
       refreshAdmins
     }}>
       {children}
