@@ -36,6 +36,9 @@ export interface VoteRecord {
 }
 
 export interface Admin {
+  id: string;
   email: string;
-  password: string;
+  password?: string;
+  isSuperAdmin: boolean;
+  createdAt: string;
 }

@@ -44,5 +44,6 @@ export interface DbAdmin {
   id: string;
   email: string;
   password_hash: string;
+  is_super_admin: boolean;
   created_at: string;
 }

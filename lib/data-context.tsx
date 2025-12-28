@@ -2,13 +2,16 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { supabase, DbVote, DbVoteOption, DbVoteRecord } from './supabase';
-import { Vote, VoteOption, VoteRecord, VoterInfo } from './types';
+import { supabase, DbVote, DbVoteOption, DbVoteRecord, DbAdmin } from './supabase';
+import { Vote, VoteOption, VoteRecord, VoterInfo, Admin } from './types';
 
 interface DataContextType {
   votes: Vote[];
   voteRecords: VoteRecord[];
+  admins: Admin[];
+  currentAdmin: Admin | null;
   isAdminLoggedIn: boolean;
+  isSuperAdmin: boolean;
   isLoading: boolean;
   createVote: (vote: Omit<Vote, 'id' | 'createdAt'>) => Promise<Vote | null>;
   updateVote: (id: string, vote: Partial<Vote>) => Promise<void>;
@@ -22,20 +25,34 @@ interface DataContextType {
   loginAdmin: (email: string, password: string) => Promise<boolean>;
   logoutAdmin: () => void;
   refreshVotes: () => Promise<void>;
+  addAdmin: (email: string, password: string) => Promise<boolean>;
+  deleteAdmin: (id: string) => Promise<boolean>;
+  refreshAdmins: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
   ADMIN: 'rampi_admin',
+  ADMIN_EMAIL: 'rampi_admin_email',
   VISITOR: 'rampi_visitor'
 };
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [votes, setVotes] = useState<Vote[]>([]);
   const [voteRecords, setVoteRecords] = useState<VoteRecord[]>([]);
+  const [admins, setAdmins] = useState<Admin[]>([]);
+  const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Convertir DbAdmin en Admin
+  const convertDbToAdmin = (dbAdmin: DbAdmin): Admin => ({
+    id: dbAdmin.id,
+    email: dbAdmin.email,
+    isSuperAdmin: dbAdmin.is_super_admin,
+    createdAt: dbAdmin.created_at
+  });
 
   // Convertir les donnees Supabase en format local
   const convertDbToVote = (dbVote: DbVote, options: DbVoteOption[]): Vote => ({
@@ -122,8 +139,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
       // Verifier l'etat de connexion admin
       if (typeof window !== 'undefined') {
         const savedAdmin = localStorage.getItem(STORAGE_KEYS.ADMIN);
-        if (savedAdmin === 'true') {
+        const savedEmail = localStorage.getItem(STORAGE_KEYS.ADMIN_EMAIL);
+
+        if (savedAdmin === 'true' && savedEmail) {
           setIsAdminLoggedIn(true);
+
+          // Recuperer les infos de l'admin
+          try {
+            const { data } = await supabase
+              .from('admins')
+              .select('*')
+              .eq('email', savedEmail)
+              .single();
+
+            if (data) {
+              const admin = convertDbToAdmin(data);
+              setCurrentAdmin(admin);
+
+              // Charger les admins si c'est un super admin
+              if (admin.isSuperAdmin) {
+                await loadAdmins();
+              }
+            }
+          } catch (error) {
+            console.error('Erreur lors de la recuperation de l\'admin:', error);
+          }
         }
       }
 
@@ -132,7 +172,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
 
     init();
-  }, [loadVotes]);
+  }, [loadVotes, loadAdmins]);
 
   // Rafraichir les votes
   const refreshVotes = async () => {
@@ -354,6 +394,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return voteRecords.filter(record => record.voteId === voteId);
   };
 
+  // Charger les admins
+  const loadAdmins = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('admins')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const convertedAdmins = (data || []).map(convertDbToAdmin);
+      setAdmins(convertedAdmins);
+    } catch (error) {
+      console.error('Erreur lors du chargement des admins:', error);
+    }
+  }, []);
+
+  // Rafraichir les admins
+  const refreshAdmins = async () => {
+    await loadAdmins();
+  };
+
   // Connexion admin
   const loginAdmin = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -368,10 +430,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
+      const admin = convertDbToAdmin(data);
+      setCurrentAdmin(admin);
       setIsAdminLoggedIn(true);
       if (typeof window !== 'undefined') {
         localStorage.setItem(STORAGE_KEYS.ADMIN, 'true');
+        localStorage.setItem(STORAGE_KEYS.ADMIN_EMAIL, email);
       }
+
+      // Charger les admins si c'est un super admin
+      if (admin.isSuperAdmin) {
+        await loadAdmins();
+      }
+
       return true;
     } catch (error) {
       console.error('Erreur de connexion:', error);
@@ -382,8 +453,69 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Deconnexion admin
   const logoutAdmin = () => {
     setIsAdminLoggedIn(false);
+    setCurrentAdmin(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem(STORAGE_KEYS.ADMIN);
+      localStorage.removeItem(STORAGE_KEYS.ADMIN_EMAIL);
+    }
+  };
+
+  // Ajouter un admin
+  const addAdmin = async (email: string, password: string): Promise<boolean> => {
+    if (!currentAdmin?.isSuperAdmin) {
+      console.error('Seul un super admin peut ajouter des admins');
+      return false;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('admins')
+        .insert({
+          email,
+          password_hash: password,
+          is_super_admin: false
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newAdmin = convertDbToAdmin(data);
+      setAdmins(prev => [...prev, newAdmin]);
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout de l\'admin:', error);
+      return false;
+    }
+  };
+
+  // Supprimer un admin
+  const deleteAdmin = async (id: string): Promise<boolean> => {
+    if (!currentAdmin?.isSuperAdmin) {
+      console.error('Seul un super admin peut supprimer des admins');
+      return false;
+    }
+
+    // Empecher la suppression du super admin
+    const adminToDelete = admins.find(a => a.id === id);
+    if (adminToDelete?.isSuperAdmin) {
+      console.error('Impossible de supprimer le super admin');
+      return false;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('admins')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setAdmins(prev => prev.filter(a => a.id !== id));
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la suppression de l\'admin:', error);
+      return false;
     }
   };
 
@@ -398,11 +530,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  const isSuperAdmin = currentAdmin?.isSuperAdmin || false;
+
   return (
     <DataContext.Provider value={{
       votes,
       voteRecords,
+      admins,
+      currentAdmin,
       isAdminLoggedIn,
+      isSuperAdmin,
       isLoading,
       createVote,
       updateVote,
@@ -415,7 +552,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       getVoteRecords,
       loginAdmin,
       logoutAdmin,
-      refreshVotes
+      refreshVotes,
+      addAdmin,
+      deleteAdmin,
+      refreshAdmins
     }}>
       {children}
     </DataContext.Provider>
