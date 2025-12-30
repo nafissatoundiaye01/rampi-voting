@@ -71,7 +71,7 @@ export async function generateVoteReportPDF({ vote, records }: GeneratePDFOption
   doc.setFont('helvetica', 'bold');
   doc.text('Total des votes:', 20, yPos);
   doc.setFont('helvetica', 'normal');
-  const totalVotes = vote.options.reduce((sum, opt) => sum + opt.votes, 0);
+  const totalVotes = records.length;
   doc.text(`${totalVotes} vote${totalVotes !== 1 ? 's' : ''}`, 55, yPos);
 
   yPos += 7;
@@ -90,10 +90,12 @@ export async function generateVoteReportPDF({ vote, records }: GeneratePDFOption
 
   yPos += 8;
 
-  // Results table
+  // Results table - Calculate from actual records for accurate data
+  const actualTotalVotes = records.length;
   const resultsData = vote.options.map(option => {
-    const percentage = totalVotes > 0 ? ((option.votes / totalVotes) * 100).toFixed(1) : '0.0';
-    return [option.label, option.votes.toString(), `${percentage}%`];
+    const optionVotes = records.filter(r => r.optionId === option.id).length;
+    const percentage = actualTotalVotes > 0 ? ((optionVotes / actualTotalVotes) * 100).toFixed(1) : '0.0';
+    return [option.label, optionVotes.toString(), `${percentage}%`];
   });
 
   autoTable(doc, {
