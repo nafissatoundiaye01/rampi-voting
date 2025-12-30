@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useData, getVisitorId } from '@/lib/data-context';
 import { VoterInfo } from '@/lib/types';
@@ -16,7 +16,7 @@ const COUNTRIES = [
 
 export default function VotePage() {
   const params = useParams();
-  const { getVoteById, hasVoted, hasEmailVoted, castVote } = useData();
+  const { getVoteById, hasVoted, hasEmailVoted, castVote, getVoteRecords } = useData();
   const [visitorId, setVisitorId] = useState('');
   const [selectedOption, setSelectedOption] = useState('');
   const [voteSubmitted, setVoteSubmitted] = useState(false);
@@ -34,6 +34,12 @@ export default function VotePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const vote = getVoteById(params.id as string);
+
+  // Get actual vote records for accurate data
+  const voteRecords = useMemo(() => {
+    if (!vote) return [];
+    return getVoteRecords(vote.id);
+  }, [vote, getVoteRecords]);
 
   useEffect(() => {
     setVisitorId(getVisitorId());
@@ -99,7 +105,8 @@ export default function VotePage() {
 
   const isActive = now >= startDateTime && now <= endDateTime;
   const hasNotStarted = now < startDateTime;
-  const totalVotes = vote.options.reduce((sum, opt) => sum + opt.votes, 0);
+  // Use actual records count for accurate total votes
+  const totalVotes = voteRecords.length;
 
   const validateInfo = (): boolean => {
     const newErrors: Partial<VoterInfo> = {};
@@ -554,7 +561,7 @@ export default function VotePage() {
                         </div>
                         <h2 className="text-xl font-bold text-navy-900">Resultats actuels</h2>
                       </div>
-                      <ResultsChart options={vote.options} />
+                      <ResultsChart options={vote.options} records={voteRecords} />
                     </>
                   ) : (
                     <div className="text-center py-12">
@@ -593,7 +600,7 @@ export default function VotePage() {
                         </div>
                         <h2 className="text-xl font-bold text-navy-900">Resultats finaux</h2>
                       </div>
-                      <ResultsChart options={vote.options} />
+                      <ResultsChart options={vote.options} records={voteRecords} />
                     </>
                   )}
                 </div>

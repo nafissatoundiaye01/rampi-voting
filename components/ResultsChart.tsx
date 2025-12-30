@@ -1,16 +1,31 @@
 'use client';
 
-import { VoteOption } from '@/lib/types';
+import { VoteOption, VoteRecord } from '@/lib/types';
 
 interface ResultsChartProps {
   options: VoteOption[];
+  records?: VoteRecord[];
   showPercentage?: boolean;
 }
 
-export default function ResultsChart({ options, showPercentage = true }: ResultsChartProps) {
-  const totalVotes = options.reduce((sum, opt) => sum + opt.votes, 0);
-  const sortedOptions = [...options].sort((a, b) => b.votes - a.votes);
-  const maxVotes = Math.max(...options.map(o => o.votes));
+export default function ResultsChart({ options, records, showPercentage = true }: ResultsChartProps) {
+  // Calculate votes from records if provided (accurate data), otherwise use options.votes
+  const getOptionVotes = (optionId: string, fallbackVotes: number) => {
+    if (records) {
+      return records.filter(r => r.optionId === optionId).length;
+    }
+    return fallbackVotes;
+  };
+
+  const totalVotes = records ? records.length : options.reduce((sum, opt) => sum + opt.votes, 0);
+
+  const optionsWithAccurateVotes = options.map(opt => ({
+    ...opt,
+    votes: getOptionVotes(opt.id, opt.votes)
+  }));
+
+  const sortedOptions = [...optionsWithAccurateVotes].sort((a, b) => b.votes - a.votes);
+  const maxVotes = Math.max(...optionsWithAccurateVotes.map(o => o.votes));
 
   return (
     <div className="space-y-4">
