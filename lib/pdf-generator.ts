@@ -10,155 +10,324 @@ interface GeneratePDFOptions {
 export async function generateVoteReportPDF({ vote, records }: GeneratePDFOptions): Promise<void> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
 
   // Colors
-  const navyColor: [number, number, number] = [15, 23, 42];
+  const navyDark: [number, number, number] = [15, 23, 42];
+  const navyMedium: [number, number, number] = [30, 41, 59];
   const goldColor: [number, number, number] = [212, 168, 83];
+  const goldLight: [number, number, number] = [251, 243, 219];
+  const grayLight: [number, number, number] = [248, 250, 252];
+  const grayMedium: [number, number, number] = [100, 116, 139];
+  const greenColor: [number, number, number] = [34, 197, 94];
+  const blueColor: [number, number, number] = [59, 130, 246];
 
-  // Header background
-  doc.setFillColor(...navyColor);
-  doc.rect(0, 0, pageWidth, 45, 'F');
-
-  // Logo placeholder (circle)
-  doc.setFillColor(...goldColor);
-  doc.circle(25, 22, 12, 'F');
-
-  // Title
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
-  doc.setFont('helvetica', 'bold');
-  doc.text('RAMPI', 45, 20);
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Rapport de Vote', 45, 28);
-
-  // Date du rapport
-  doc.setFontSize(9);
-  doc.text(`Genere le ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, pageWidth - 15, 20, { align: 'right' });
-
-  // Vote title section
-  let yPos = 55;
-
-  doc.setTextColor(...navyColor);
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text(vote.title, 15, yPos);
-
-  yPos += 8;
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 100, 100);
-  if (vote.description) {
-    const descLines = doc.splitTextToSize(vote.description, pageWidth - 30);
-    doc.text(descLines, 15, yPos);
-    yPos += descLines.length * 5 + 5;
-  }
-
-  // Vote info box
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(15, yPos, pageWidth - 30, 25, 3, 3, 'F');
-
-  yPos += 8;
-  doc.setFontSize(9);
-  doc.setTextColor(...navyColor);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Periode du vote:', 20, yPos);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`${new Date(vote.startDate).toLocaleDateString('fr-FR')} a ${vote.startTime || '00:00'} - ${new Date(vote.endDate).toLocaleDateString('fr-FR')} a ${vote.endTime || '23:59'}`, 55, yPos);
-
-  yPos += 7;
-  doc.setFont('helvetica', 'bold');
-  doc.text('Total des votes:', 20, yPos);
-  doc.setFont('helvetica', 'normal');
+  // Calculate statistics
   const totalVotes = records.length;
-  doc.text(`${totalVotes} vote${totalVotes !== 1 ? 's' : ''}`, 55, yPos);
+  const optionsWithVotes = vote.options.map(option => ({
+    ...option,
+    actualVotes: records.filter(r => r.optionId === option.id).length
+  }));
+  const sortedOptions = [...optionsWithVotes].sort((a, b) => b.actualVotes - a.actualVotes);
+  const winningOption = sortedOptions[0];
 
-  yPos += 7;
-  doc.setFont('helvetica', 'bold');
-  doc.text('Affichage resultats:', 20, yPos);
-  doc.setFont('helvetica', 'normal');
-  doc.text(vote.showResults ? 'Oui' : 'Non', 55, yPos);
+  // Country statistics
+  const countryStats: { [key: string]: number } = {};
+  records.forEach(record => {
+    const country = record.voterInfo.pays || 'Non specifie';
+    countryStats[country] = (countryStats[country] || 0) + 1;
+  });
+  const sortedCountries = Object.entries(countryStats).sort((a, b) => b[1] - a[1]);
 
-  yPos += 15;
+  // ==================== HEADER ====================
+  // Navy gradient background
+  doc.setFillColor(...navyDark);
+  doc.rect(0, 0, pageWidth, 52, 'F');
 
-  // Results section
+  // Decorative gold accent line
+  doc.setFillColor(...goldColor);
+  doc.rect(0, 52, pageWidth, 3, 'F');
+
+  // Decorative element - subtle pattern
+  doc.setFillColor(...navyMedium);
+  doc.circle(pageWidth - 10, 0, 25, 'F');
+  doc.circle(pageWidth + 5, 30, 15, 'F');
+
+  // Logo circle with gold border
+  doc.setFillColor(...goldColor);
+  doc.circle(28, 26, 15, 'F');
+  doc.setFillColor(...navyDark);
+  doc.circle(28, 26, 12, 'F');
+  doc.setTextColor(...goldColor);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...navyColor);
-  doc.text('Resultats du vote', 15, yPos);
+  doc.text('R', 24, 30);
+
+  // Title and subtitle
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.text('RAMPI', 50, 24);
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...goldColor);
+  doc.text('Rapport Officiel de Vote', 50, 33);
+
+  // Date badge
+  doc.setFillColor(...navyMedium);
+  const dateText = `${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+  const dateWidth = doc.getTextWidth(dateText) + 16;
+  doc.roundedRect(pageWidth - dateWidth - 15, 18, dateWidth, 18, 4, 4, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9);
+  doc.text(dateText, pageWidth - 15, 29, { align: 'right' });
+
+  // ==================== VOTE TITLE SECTION ====================
+  let yPos = 68;
+
+  // Vote title with icon
+  doc.setFillColor(...navyDark);
+  doc.circle(22, yPos - 2, 5, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(8);
+  doc.text('V', 20, yPos);
+
+  doc.setTextColor(...navyDark);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text(vote.title, 32, yPos);
 
   yPos += 8;
 
-  // Results table - Calculate from actual records for accurate data
-  const actualTotalVotes = records.length;
-  const resultsData = vote.options.map(option => {
-    const optionVotes = records.filter(r => r.optionId === option.id).length;
-    const percentage = actualTotalVotes > 0 ? ((optionVotes / actualTotalVotes) * 100).toFixed(1) : '0.0';
-    return [option.label, optionVotes.toString(), `${percentage}%`];
-  });
-
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Option', 'Votes', 'Pourcentage']],
-    body: resultsData,
-    theme: 'striped',
-    headStyles: {
-      fillColor: navyColor,
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      fontSize: 10
-    },
-    bodyStyles: {
-      fontSize: 9,
-      textColor: navyColor
-    },
-    alternateRowStyles: {
-      fillColor: [248, 250, 252]
-    },
-    margin: { left: 15, right: 15 },
-    columnStyles: {
-      0: { cellWidth: 'auto' },
-      1: { cellWidth: 30, halign: 'center' },
-      2: { cellWidth: 35, halign: 'center' }
-    }
-  });
-
-  // Get the final Y position after the table
-  yPos = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
-
-  // Check if we need a new page for voters list
-  if (yPos > 200) {
-    doc.addPage();
-    yPos = 20;
+  // Description
+  if (vote.description) {
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...grayMedium);
+    const descLines = doc.splitTextToSize(vote.description, pageWidth - 50);
+    doc.text(descLines, 32, yPos);
+    yPos += descLines.length * 5 + 8;
+  } else {
+    yPos += 5;
   }
 
-  // Voters list section
+  // ==================== INFO CARDS ====================
+  const cardWidth = (pageWidth - 45) / 3;
+  const cardHeight = 28;
+  const cardY = yPos;
+
+  // Card 1: Period
+  doc.setFillColor(...grayLight);
+  doc.roundedRect(15, cardY, cardWidth, cardHeight, 4, 4, 'F');
+  doc.setFillColor(...blueColor);
+  doc.roundedRect(15, cardY, 4, cardHeight, 2, 2, 'F');
+
+  doc.setTextColor(...blueColor);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PERIODE DU VOTE', 24, cardY + 8);
+  doc.setTextColor(...navyDark);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Du ${new Date(vote.startDate).toLocaleDateString('fr-FR')}`, 24, cardY + 16);
+  doc.text(`Au ${new Date(vote.endDate).toLocaleDateString('fr-FR')}`, 24, cardY + 23);
+
+  // Card 2: Total votes
+  doc.setFillColor(...grayLight);
+  doc.roundedRect(20 + cardWidth, cardY, cardWidth, cardHeight, 4, 4, 'F');
+  doc.setFillColor(...greenColor);
+  doc.roundedRect(20 + cardWidth, cardY, 4, cardHeight, 2, 2, 'F');
+
+  doc.setTextColor(...greenColor);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('TOTAL DES VOTES', 29 + cardWidth, cardY + 8);
+  doc.setTextColor(...navyDark);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text(totalVotes.toString(), 29 + cardWidth, cardY + 22);
+
+  // Card 3: Winner
+  doc.setFillColor(...grayLight);
+  doc.roundedRect(25 + cardWidth * 2, cardY, cardWidth, cardHeight, 4, 4, 'F');
+  doc.setFillColor(...goldColor);
+  doc.roundedRect(25 + cardWidth * 2, cardY, 4, cardHeight, 2, 2, 'F');
+
+  doc.setTextColor(...goldColor);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('OPTION GAGNANTE', 34 + cardWidth * 2, cardY + 8);
+  doc.setTextColor(...navyDark);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  if (totalVotes > 0) {
+    const winnerText = winningOption.label.length > 15 ? winningOption.label.substring(0, 15) + '...' : winningOption.label;
+    doc.text(winnerText, 34 + cardWidth * 2, cardY + 17);
+    const winPercentage = ((winningOption.actualVotes / totalVotes) * 100).toFixed(1);
+    doc.setTextColor(...goldColor);
+    doc.setFontSize(9);
+    doc.text(`${winPercentage}% des votes`, 34 + cardWidth * 2, cardY + 24);
+  } else {
+    doc.text('Aucun vote', 34 + cardWidth * 2, cardY + 18);
+  }
+
+  yPos = cardY + cardHeight + 15;
+
+  // ==================== RESULTS SECTION ====================
+  // Section header with gold accent
+  doc.setFillColor(...goldColor);
+  doc.roundedRect(15, yPos, 4, 20, 2, 2, 'F');
+
+  doc.setTextColor(...navyDark);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...navyColor);
-  doc.text('Liste des votants', 15, yPos);
+  doc.text('Resultats detailles', 24, yPos + 6);
 
-  yPos += 8;
+  doc.setTextColor(...grayMedium);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Repartition des votes par option', 24, yPos + 14);
+
+  yPos += 25;
+
+  // Results with progress bars
+  sortedOptions.forEach((option, index) => {
+    const percentage = totalVotes > 0 ? (option.actualVotes / totalVotes) * 100 : 0;
+    const barWidth = pageWidth - 80;
+    const isWinner = index === 0 && totalVotes > 0;
+
+    // Option label
+    doc.setTextColor(...navyDark);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', isWinner ? 'bold' : 'normal');
+    doc.text(option.label, 20, yPos);
+
+    // Votes count and percentage on the right
+    doc.setTextColor(...grayMedium);
+    doc.setFontSize(9);
+    doc.text(`${option.actualVotes} vote${option.actualVotes !== 1 ? 's' : ''}`, pageWidth - 45, yPos, { align: 'right' });
+
+    if (isWinner) {
+      doc.setTextColor(...goldColor);
+    } else {
+      doc.setTextColor(...navyDark);
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${percentage.toFixed(1)}%`, pageWidth - 15, yPos, { align: 'right' });
+
+    yPos += 5;
+
+    // Progress bar background
+    doc.setFillColor(...grayLight);
+    doc.roundedRect(20, yPos, barWidth, 6, 3, 3, 'F');
+
+    // Progress bar fill
+    if (percentage > 0) {
+      if (isWinner) {
+        doc.setFillColor(...goldColor);
+      } else {
+        doc.setFillColor(...navyMedium);
+      }
+      doc.roundedRect(20, yPos, Math.max((barWidth * percentage) / 100, 6), 6, 3, 3, 'F');
+    }
+
+    // Winner star indicator
+    if (isWinner && totalVotes > 0) {
+      doc.setFillColor(...goldColor);
+      doc.circle(15, yPos + 3, 3, 'F');
+    }
+
+    yPos += 14;
+  });
+
+  yPos += 5;
+
+  // ==================== COUNTRY STATISTICS ====================
+  if (sortedCountries.length > 0 && yPos < 200) {
+    doc.setFillColor(...blueColor);
+    doc.roundedRect(15, yPos, 4, 20, 2, 2, 'F');
+
+    doc.setTextColor(...navyDark);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Repartition par pays', 24, yPos + 6);
+
+    doc.setTextColor(...grayMedium);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${sortedCountries.length} pays represente${sortedCountries.length > 1 ? 's' : ''}`, 24, yPos + 14);
+
+    yPos += 25;
+
+    // Country mini cards (top 6)
+    const displayCountries = sortedCountries.slice(0, 6);
+    const countryCardWidth = (pageWidth - 40) / 3;
+
+    displayCountries.forEach((country, index) => {
+      const col = index % 3;
+      const row = Math.floor(index / 3);
+      const x = 15 + col * (countryCardWidth + 5);
+      const y = yPos + row * 18;
+
+      doc.setFillColor(...grayLight);
+      doc.roundedRect(x, y, countryCardWidth, 14, 3, 3, 'F');
+
+      doc.setTextColor(...navyDark);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      const countryName = country[0].length > 12 ? country[0].substring(0, 12) + '...' : country[0];
+      doc.text(countryName, x + 4, y + 9);
+
+      doc.setTextColor(...blueColor);
+      doc.text(country[1].toString(), x + countryCardWidth - 4, y + 9, { align: 'right' });
+    });
+
+    yPos += Math.ceil(displayCountries.length / 3) * 18 + 10;
+  }
+
+  // ==================== VOTERS LIST ====================
+  // Check if we need a new page
+  if (yPos > 220) {
+    doc.addPage();
+    yPos = 25;
+  }
+
+  doc.setFillColor(...greenColor);
+  doc.roundedRect(15, yPos, 4, 20, 2, 2, 'F');
+
+  doc.setTextColor(...navyDark);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Liste des votants', 24, yPos + 6);
+
+  doc.setTextColor(...grayMedium);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${records.length} participant${records.length !== 1 ? 's' : ''} enregistre${records.length !== 1 ? 's' : ''}`, 24, yPos + 14);
+
+  yPos += 25;
 
   if (records.length === 0) {
-    doc.setFontSize(10);
+    doc.setFillColor(...grayLight);
+    doc.roundedRect(15, yPos, pageWidth - 30, 30, 4, 4, 'F');
+    doc.setTextColor(...grayMedium);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'italic');
-    doc.setTextColor(100, 100, 100);
-    doc.text('Aucun vote enregistre pour le moment.', 15, yPos);
+    doc.text('Aucun vote enregistre pour le moment.', pageWidth / 2, yPos + 18, { align: 'center' });
   } else {
-    // Voters table
+    // Voters table with improved design
     const votersData = records.map((record, index) => {
       const votedDate = new Date(record.votedAt);
-      const dateStr = votedDate.toLocaleDateString('fr-FR');
+      const dateStr = votedDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
       const timeStr = votedDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
       return [
         (index + 1).toString(),
         `${record.voterInfo.prenom} ${record.voterInfo.nom}`,
         record.voterInfo.email,
-        record.voterInfo.telephone,
-        record.voterInfo.pays,
+        record.voterInfo.telephone || '-',
+        record.voterInfo.pays || '-',
         record.optionLabel,
         `${dateStr} ${timeStr}`
       ];
@@ -166,59 +335,81 @@ export async function generateVoteReportPDF({ vote, records }: GeneratePDFOption
 
     autoTable(doc, {
       startY: yPos,
-      head: [['#', 'Nom complet', 'Email', 'Telephone', 'Pays', 'Vote', 'Date et Heure']],
+      head: [['#', 'Nom complet', 'Email', 'Telephone', 'Pays', 'Vote', 'Date/Heure']],
       body: votersData,
-      theme: 'striped',
+      theme: 'plain',
       headStyles: {
-        fillColor: navyColor,
+        fillColor: navyDark,
         textColor: [255, 255, 255],
         fontStyle: 'bold',
-        fontSize: 8
+        fontSize: 8,
+        cellPadding: 4,
+        halign: 'left'
       },
       bodyStyles: {
         fontSize: 7,
-        textColor: navyColor
+        textColor: navyDark,
+        cellPadding: 3,
+        lineColor: [226, 232, 240],
+        lineWidth: 0.1
       },
       alternateRowStyles: {
-        fillColor: [248, 250, 252]
+        fillColor: grayLight
       },
-      margin: { left: 15, right: 15 },
+      margin: { left: 15, right: 15, bottom: 30 },
       columnStyles: {
-        0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 38 },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 20 },
-        5: { cellWidth: 28 },
-        6: { cellWidth: 28, halign: 'center' }
+        0: { cellWidth: 8, halign: 'center', fontStyle: 'bold' },
+        1: { cellWidth: 28 },
+        2: { cellWidth: 40 },
+        3: { cellWidth: 22 },
+        4: { cellWidth: 22 },
+        5: { cellWidth: 28, fontStyle: 'bold' },
+        6: { cellWidth: 24, halign: 'center' }
       }
     });
   }
 
-  // Footer on each page
+  // ==================== FOOTER ON ALL PAGES ====================
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    const pageHeight = doc.internal.pageSize.getHeight();
 
-    // Footer line
-    doc.setDrawColor(...goldColor);
-    doc.setLineWidth(0.5);
-    doc.line(15, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    // Footer background
+    doc.setFillColor(...navyDark);
+    doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
+
+    // Gold accent line
+    doc.setFillColor(...goldColor);
+    doc.rect(0, pageHeight - 20, pageWidth, 1, 'F');
+
+    // Logo in footer
+    doc.setFillColor(...goldColor);
+    doc.circle(22, pageHeight - 10, 5, 'F');
+    doc.setTextColor(...navyDark);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('R', 20, pageHeight - 8);
 
     // Footer text
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
     doc.setFont('helvetica', 'normal');
-    doc.text('RAMPI - Reseau Africain des Magistrats de Propriete Intellectuelle', 15, pageHeight - 10);
-    doc.text(`Page ${i} / ${pageCount}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+    doc.text('RAMPI - Reseau Africain des Magistrats de Propriete Intellectuelle', 32, pageHeight - 8);
+
+    // Page number badge
+    doc.setFillColor(...navyMedium);
+    const pageText = `${i} / ${pageCount}`;
+    doc.roundedRect(pageWidth - 30, pageHeight - 15, 20, 10, 3, 3, 'F');
+    doc.setTextColor(...goldColor);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text(pageText, pageWidth - 20, pageHeight - 8, { align: 'center' });
   }
 
-  // Generate filename
+  // ==================== SAVE PDF ====================
   const sanitizedTitle = vote.title.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
   const dateStr = new Date().toISOString().split('T')[0];
   const filename = `RAMPI_Rapport_${sanitizedTitle}_${dateStr}.pdf`;
 
-  // Save the PDF
   doc.save(filename);
 }
